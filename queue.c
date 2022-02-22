@@ -187,6 +187,30 @@ bool q_delete_mid(struct list_head *head)
 bool q_delete_dup(struct list_head *head)
 {
     // https://leetcode.com/problems/remove-duplicates-from-sorted-list-ii/
+    if (!head)
+        return false;
+    struct list_head *ptr = head->next;
+    while (ptr != head && ptr->next != head) {  // ptr is not the tail or head
+        element_t *first = list_entry(ptr, element_t, list);
+        element_t *second = list_entry(ptr->next, element_t, list);
+        if (!strcmp(first->value, second->value)) {
+            while (second && !strcmp(first->value, second->value)) {
+                list_del(&first->list);
+                q_release_element(first);
+                first = second;
+                if (first->list.next != head) {
+                    second = list_entry(first->list.next, element_t, list);
+                } else {
+                    second = NULL;
+                }
+            }
+            ptr = first->list.next;
+            list_del(&first->list);
+            q_release_element(first);
+        } else {
+            ptr = ptr->next;
+        }
+    }
     return true;
 }
 
@@ -209,7 +233,6 @@ void q_swap(struct list_head *head)
         first = first->next;
         second = first->next;
     }
-    return;
 }
 
 /*
@@ -238,4 +261,52 @@ void q_reverse(struct list_head *head)
  * No effect if q is NULL or empty. In addition, if q has only one
  * element, do nothing.
  */
-void q_sort(struct list_head *head) {}
+struct list_head *mergesort_list(struct list_head *head);
+struct list_head *merge_two_lists(struct list_head *L1, struct list_head *L2);
+void q_sort(struct list_head *head)
+{
+    if (!head || list_empty(head))
+        return;
+    head->prev->next = NULL;
+    head->next = mergesort_list(head->next);
+    struct list_head *ptr = head;
+    for (; ptr && ptr->next; ptr = ptr->next) {
+        ptr->next->prev = ptr;
+    }
+    ptr->next = head;
+    head->prev = ptr;
+}
+
+struct list_head *mergesort_list(struct list_head *head)
+{
+    if (!head || !head->next)
+        return head;
+
+    struct list_head *slow = head;
+    for (struct list_head *fast = head->next; fast && fast->next;
+         fast = fast->next->next)
+        slow = slow->next;
+    struct list_head *mid = slow->next;
+    slow->next = NULL;
+
+    struct list_head *left = mergesort_list(head), *right = mergesort_list(mid);
+    return merge_two_lists(left, right);
+}
+
+struct list_head *merge_two_lists(struct list_head *L1, struct list_head *L2)
+{
+    struct list_head *head = NULL, **ptr = &head, **node;
+    for (node = NULL; L1 && L2; *node = (*node)->next) {
+        node = (strcmp(list_entry(L1, element_t, list)->value,
+                       list_entry(L2, element_t, list)->value) <= 0)
+                   ? &L1
+                   : &L2;
+        *ptr = *node;
+        ptr = &(*ptr)->next;
+    }
+    if (L1)
+        *ptr = L1;
+    else
+        *ptr = L2;
+    return head;
+}
